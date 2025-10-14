@@ -523,6 +523,38 @@ public class GameManager {
         }
     }
 
+    private Location findSafeRespawnLocation(Location beaconLocation) {
+        World world = beaconLocation.getWorld();
+        if (world == null) {
+            return beaconLocation.clone().add(0.5, 1, 0.5); // Fallback
+        }
+
+        Random random = new Random();
+        for (int i = 0; i < 20; i++) { // 20번 시도
+            double angle = random.nextDouble() * 2 * Math.PI;
+            // 19~21 블록 사이의 랜덤 거리
+            double radius = 19 + random.nextDouble() * 2;
+
+            double x = beaconLocation.getX() + radius * Math.cos(angle);
+            double z = beaconLocation.getZ() + radius * Math.sin(angle);
+
+            Location potentialLocation = world.getHighestBlockAt((int) x, (int) z).getLocation().add(0.5, 1, 0.5);
+
+            // 스폰 위치가 안전한지 확인 (발과 머리 위치에 블록이 없는지)
+            Block feet = potentialLocation.getBlock();
+            Block head = potentialLocation.clone().add(0, 1, 0).getBlock();
+
+            if (feet.isPassable() && head.isPassable()) {
+                // 플레이어가 바라볼 방향을 비콘으로 설정
+                potentialLocation.setDirection(beaconLocation.toVector().subtract(potentialLocation.toVector()));
+                return potentialLocation;
+            }
+        }
+
+        // 20번 시도 후에도 안전한 장소를 찾지 못하면 비콘 위로 텔레포트
+        return beaconLocation.clone().add(0.5, 1, 0.5);
+    }
+
     public void startRespawnCountdown(Player player) {
         Team team = getPlayerTeam(player);
         if (team == null) return;
@@ -557,7 +589,8 @@ public class GameManager {
                     new BukkitRunnable() {
                         @Override
                         public void run() {
-                            player.teleport(beaconLocation.clone().add(0.5, 1, 0.5)); // 블록 중앙으로 텔레포트
+                            Location safeRespawnLocation = findSafeRespawnLocation(beaconLocation);
+                            player.teleport(safeRespawnLocation);
                         }
                     }.runTaskLater(plugin, 1L);
                 }
@@ -725,5 +758,22 @@ public class GameManager {
 
     public BossBar getInvincibilityBossBar() {
         return invincibilityBossBar;
+    }
+
+    // DataManager access methods
+    public void setGameInProgress(boolean gameInProgress) {
+        this.gameInProgress = gameInProgress;
+    }
+
+    public Map<Team, Set<UUID>> getTeams() {
+        return teams;
+    }
+
+    public Map<UUID, Team> getPlayerTeams() {
+        return playerTeams;
+    }
+
+    public Map<Team, Boolean> getBeaconEverPlaced() {
+        return beaconEverPlaced;
     }
 }
