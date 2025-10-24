@@ -7,6 +7,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -197,9 +198,25 @@ public class GameListener implements Listener {
             event.setDropItems(false);
         }
 
+        // 신호기 기반(철 블록) 보호
         if (block.getType() == Material.IRON_BLOCK) {
-            Location above = block.getLocation().clone().add(0, 1, 0);
-            if (gameManager.getBeaconLocations().containsValue(above)) {
+            Set<Location> protectedBaseLocations = new HashSet<>();
+            for (Location beaconLoc : gameManager.getBeaconLocations().values()) {
+                // Check if a beacon actually exists at the stored location before protecting its base
+                if (beaconLoc != null && beaconLoc.getBlock().getType() == Material.BEACON) {
+                    int baseX = beaconLoc.getBlockX();
+                    int baseY = beaconLoc.getBlockY() - 1;
+                    int baseZ = beaconLoc.getBlockZ();
+
+                    for (int x = -1; x <= 1; x++) {
+                        for (int z = -1; z <= 1; z++) {
+                            protectedBaseLocations.add(new Location(beaconLoc.getWorld(), baseX + x, baseY, baseZ + z));
+                        }
+                    }
+                }
+            }
+
+            if (protectedBaseLocations.contains(block.getLocation())) {
                 player.sendMessage("§c신호기 기반 블록은 파괴할 수 없습니다.");
                 event.setCancelled(true);
                 return;
@@ -264,18 +281,39 @@ public class GameListener implements Listener {
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (!gameManager.isGameInProgress()) return;
 
-        // 무적 시간 체크는 onEntityDamage에서 처리하므로 여기서는 아군 공격만 확인
-        Entity damager = event.getDamager();
-        Entity victim = event.getEntity();
+        // 무적 시간에는 모든 데미지 방지 (중복 체크지만 안전을 위해 추가)
+        if (gameManager.isInvincible()) {
+            event.setCancelled(true);
+            return;
+        }
 
-        if (damager instanceof Player && victim instanceof Player) {
-            Player attacker = (Player) damager;
-            Player target = (Player) victim;
+        if (!(event.getEntity() instanceof Player)) {
+            return;
+        }
+        Player victim = (Player) event.getEntity();
+        Player attacker = null;
+
+        Entity damager = event.getDamager();
+        if (damager instanceof Player) {
+            attacker = (Player) damager;
+        } else if (damager instanceof Projectile) {
+            Projectile projectile = (Projectile) damager;
+            if (projectile.getShooter() instanceof Player) {
+                attacker = (Player) projectile.getShooter();
+            }
+        }
+
+        // 아군 공격 방지
+        if (attacker != null) {
+            // Don't cancel if it's self-inflicted damage (e.g. shooting arrow up and it falls on you)
+            if (attacker.equals(victim)) {
+                return;
+            }
 
             Team attackerTeam = gameManager.getPlayerTeam(attacker);
-            Team targetTeam = gameManager.getPlayerTeam(target);
+            Team victimTeam = gameManager.getPlayerTeam(victim);
 
-            if (attackerTeam != null && attackerTeam == targetTeam) {
+            if (attackerTeam != null && attackerTeam == victimTeam) {
                 event.setCancelled(true);
             }
         }
