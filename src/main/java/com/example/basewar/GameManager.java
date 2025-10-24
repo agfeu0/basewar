@@ -41,6 +41,9 @@ public class GameManager {
     private BossBar invincibilityBossBar;
     private BukkitTask invincibilityTask;
 
+    private boolean beaconPlacementRestricted = false;
+    private int minX, maxX, minY, maxY, minZ, maxZ;
+
     public static final String KIT_GUI_TITLE = "§x§0§0§8§0§f§f기본 아이템 설정";
     private List<ItemStack> kitItems = new ArrayList<>();
 
@@ -94,6 +97,26 @@ public class GameManager {
         if (spawnSection != null) {
             this.globalSpawnLocation = getLocationFromConfig(spawnSection);
         }
+
+        ConfigurationSection beaconRestrictions = plugin.getConfig().getConfigurationSection("beacon-placement-restrictions");
+        if (beaconRestrictions != null) {
+            this.beaconPlacementRestricted = beaconRestrictions.getBoolean("enabled", false);
+            this.minX = beaconRestrictions.getInt("min-x", -1000);
+            this.maxX = beaconRestrictions.getInt("max-x", 1000);
+            this.minY = beaconRestrictions.getInt("min-y", 0);
+            this.maxY = beaconRestrictions.getInt("max-y", 256);
+            this.minZ = beaconRestrictions.getInt("min-z", -1000);
+            this.maxZ = beaconRestrictions.getInt("max-z", 1000);
+        }
+    }
+
+    public boolean isBeaconPlacementAllowed(Location location) {
+        if (!beaconPlacementRestricted) {
+            return true;
+        }
+        return location.getX() >= minX && location.getX() <= maxX &&
+               location.getY() >= minY && location.getY() <= maxY &&
+               location.getZ() >= minZ && location.getZ() <= maxZ;
     }
 
     public void openKitGui(Player player) {
@@ -775,5 +798,29 @@ public class GameManager {
 
     public Map<Team, Boolean> getBeaconEverPlaced() {
         return beaconEverPlaced;
+    }
+
+    public int getMinX() {
+        return minX;
+    }
+
+    public int getMaxX() {
+        return maxX;
+    }
+
+    public int getMinY() {
+        return minY;
+    }
+
+    public int getMaxY() {
+        return maxY;
+    }
+
+    public int getMinZ() {
+        return minZ;
+    }
+
+    public int getMaxZ() {
+        return maxZ;
     }
 }

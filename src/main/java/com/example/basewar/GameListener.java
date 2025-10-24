@@ -262,6 +262,14 @@ public class GameListener implements Listener {
             return;
         }
 
+        if (!gameManager.isBeaconPlacementAllowed(block.getLocation())) {
+            player.sendMessage("§c이곳에는 신호기를 설치할 수 없습니다. (X: " + gameManager.getMinX() + "~" + gameManager.getMaxX() +
+                               ", Y: " + gameManager.getMinY() + "~" + gameManager.getMaxY() +
+                               ", Z: " + gameManager.getMinZ() + "~" + gameManager.getMaxZ() + ")");
+            event.setCancelled(true);
+            return;
+        }
+
         gameManager.handleBeaconPlace(block, player);
     }
 
